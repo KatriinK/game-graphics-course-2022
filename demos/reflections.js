@@ -128,7 +128,7 @@ let skyboxVertexShader = `
     }
 `;
 
-let program = app.createProgram(vertexShader, fragmentShader);
+let program = app.createProgram(vertexShader.trim(), fragmentShader.trim());
 let skyboxProgram = app.createProgram(skyboxVertexShader, skyboxFragmentShader);
 let mirrorProgram = app.createProgram(mirrorVertexShader, mirrorFragmentShader);
 
@@ -137,21 +137,17 @@ let vertexArray = app.createVertexArray()
     .vertexAttributeBuffer(1, app.createVertexBuffer(PicoGL.FLOAT, 3, normals))
     .indexBuffer(app.createIndexBuffer(PicoGL.UNSIGNED_INT, 3, indices));
 
-const planePositionsBuffer = app.createVertexBuffer(PicoGL.FLOAT, 3, planePositions);
-const planeUvsBuffer = app.createVertexBuffer(PicoGL.FLOAT, 2, planeUvs);
-const planeIndicesBuffer = app.createIndexBuffer(PicoGL.UNSIGNED_INT, 3, planeIndices);
-
 let skyboxArray = app.createVertexArray()
-    .vertexAttributeBuffer(0, planePositionsBuffer)
-    .indexBuffer(planeIndicesBuffer);
+    .vertexAttributeBuffer(0, app.createVertexBuffer(PicoGL.FLOAT, 3, skyboxPositions))
+    .indexBuffer(app.createIndexBuffer(PicoGL.UNSIGNED_INT, 3, skyboxTriangles));
 
 let mirrorArray = app.createVertexArray()
-    .vertexAttributeBuffer(0, planePositionsBuffer)
-    .vertexAttributeBuffer(1, planeUvsBuffer)
-    .indexBuffer(planeIndicesBuffer);
+    .vertexAttributeBuffer(0, app.createVertexBuffer(PicoGL.FLOAT, 3, mirrorPositions))
+    .vertexAttributeBuffer(1, app.createVertexBuffer(PicoGL.FLOAT, 2, mirrorUvs))
+    .indexBuffer(app.createIndexBuffer(PicoGL.UNSIGNED_INT, 3, mirrorIndices));
 
 // Change the reflection texture resolution to checkout the difference
-let reflectionResolutionFactor = 0.2;
+let reflectionResolutionFactor = 0.6;
 let reflectionColorTarget = app.createTexture2D(app.width * reflectionResolutionFactor, app.height * reflectionResolutionFactor, {magFilter: PicoGL.LINEAR});
 let reflectionDepthTarget = app.createTexture2D(app.width * reflectionResolutionFactor, app.height * reflectionResolutionFactor, {internalFormat: PicoGL.DEPTH_COMPONENT16});
 let reflectionBuffer = app.createFramebuffer().colorTarget(0, reflectionColorTarget).depthTarget(reflectionDepthTarget);
@@ -190,10 +186,10 @@ function calculateSurfaceReflectionMatrix(reflectionMat, mirrorModelMatrix, surf
     reflectionMat[10] = (1 - 2 * plane[2] * plane[2]);
     reflectionMat[14] = ( - 2 * plane[3] * plane[2]);
 
-    reflectionMat[3] = 0;
-    reflectionMat[7] = 0;
-    reflectionMat[11] = 0;
-    reflectionMat[15] = 1;
+    reflectionMat[3] = 10;
+    reflectionMat[7] = 10;
+    reflectionMat[11] = 10;
+    reflectionMat[15] = 11;
 
     return reflectionMat;
 }

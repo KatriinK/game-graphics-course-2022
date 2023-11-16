@@ -4,11 +4,29 @@
 // **                                                                                                                 **
 // *********************************************************************************************************************
 
+// * Change textures
+// * Combine several textures in fragment shaders
+// * Distort UV coordinates
+// * Change texture filtering for pixel graphics
+// * Use wrapping modes for texture tiling
+
 import PicoGL from "../node_modules/picogl/build/module/picogl.js";
 import {mat4, vec3} from "../node_modules/gl-matrix/esm/index.js";
 
-import {positions, uvs, indices} from "../blender/cube.js";
-import {positions as planePositions, indices as planeIndices} from "../blender/plane.js";
+import {positions, normals, uvs, indices} from "../blender/cube.js"
+
+const skyboxPositions = new Float32Array([
+    -1.0, 1.0, 1.0,
+    1.0, 1.0, 1.0,
+    -1.0, -1.0, 1.0,
+    1.0, -1.0, 1.0
+]);
+
+const skyboxIndices = new Uint32Array([
+    0, 2, 1,
+    2, 3, 1
+]);
+
 
 // language=GLSL
 let fragmentShader = `
@@ -72,22 +90,25 @@ let skyboxVertexShader = `
     out vec4 v_position;
     
     void main() {
-      v_position = vec4(position.xz, 1.0, 1.0);
-      gl_Position = v_position;
+      v_position = position;
+      gl_Position = position;
     }
 `;
+
+app.enable(PicoGL.CULL_FACE);
 
 let program = app.createProgram(vertexShader.trim(), fragmentShader.trim());
 let skyboxProgram = app.createProgram(skyboxVertexShader.trim(), skyboxFragmentShader.trim());
 
 let vertexArray = app.createVertexArray()
     .vertexAttributeBuffer(0, app.createVertexBuffer(PicoGL.FLOAT, 3, positions))
+    .vertexAttributeBuffer(1, app.createVertexBuffer(PicoGL.FLOAT, 3, normals))
     .vertexAttributeBuffer(2, app.createVertexBuffer(PicoGL.FLOAT, 2, uvs))
     .indexBuffer(app.createIndexBuffer(PicoGL.UNSIGNED_INT, 3, indices));
 
 let skyboxArray = app.createVertexArray()
-    .vertexAttributeBuffer(0, app.createVertexBuffer(PicoGL.FLOAT, 3, planePositions))
-    .indexBuffer(app.createIndexBuffer(PicoGL.UNSIGNED_INT, 3, planeIndices));
+    .vertexAttributeBuffer(0, app.createVertexBuffer(PicoGL.FLOAT, 3, skyboxPositions))
+    .indexBuffer(app.createIndexBuffer(PicoGL.UNSIGNED_INT, 3, skyboxIndices));
 
 let projMatrix = mat4.create();
 let viewMatrix = mat4.create();
@@ -103,57 +124,61 @@ async function loadTexture(fileName) {
     return await createImageBitmap(await (await fetch("images/" + fileName)).blob());
 }
 
-const tex = await loadTexture("abstract.jpg");
-let drawCall = app.createDrawCall(program, vertexArray)
-    .texture("tex", app.createTexture2D(tex, tex.width, tex.height, {
-        magFilter: PicoGL.LINEAR,
-        minFilter: PicoGL.LINEAR_MIPMAP_LINEAR,
-        maxAnisotropy: 10,
-        wrapS: PicoGL.REPEAT,
-        wrapT: PicoGL.REPEAT
-    }));
+(async () => {
+    const tex = await loadTexture("abstract.jpg");
+    let drawCall = app.createDrawCall(program, vertexArray)
+        .texture("tex", app.createTexture2D(tex, tex.width, tex.height, {
+            magFilter: PicoGL.LINEAR,
+            minFilter: PicoGL.LINEAR_MIPMAP_LINEAR,
+            maxAnisotropy: 10,
+            wrapS: PicoGL.REPEAT,
+            wrapT: PicoGL.REPEAT
+        }));
 
 let skyboxDrawCall = app.createDrawCall(skyboxProgram, skyboxArray)
     .texture("cubemap", app.createCubemap({
-        negX: await loadTexture("stormydays_bk.png"),
-        posX: await loadTexture("stormydays_ft.png"),
-        negY: await loadTexture("stormydays_dn.png"),
-        posY: await loadTexture("stormydays_up.png"),
-        negZ: await loadTexture("stormydays_lf.png"),
-        posZ: await loadTexture("stormydays_rt.png")
+        negX: await loadTexture("nebulaBK.png"),
+        posX: await loadTexture("nebulaFT.png"),
+        negY: await loadTexture("nebulaDN.png"),
+        posY: await loadTexture("nebulaUP.png"),
+        negZ: await loadTexture("nebulaLF.png"),
+        posZ: await loadTexture("nebulaRT.png")
     }));
 
-function draw(timems) {
-    const time = timems * 0.001;
+    let startTime = new Date().getTime() / 1000;
 
-    mat4.perspective(projMatrix, Math.PI / 2, app.width / app.height, 0.1, 100.0);
-    let camPos = vec3.rotateY(vec3.create(), vec3.fromValues(0, 0.5, 2), vec3.fromValues(0, 0, 0), time * 0.05);
-    mat4.lookAt(viewMatrix, camPos, vec3.fromValues(0, 0, 0), vec3.fromValues(0, 1, 0));
-    mat4.multiply(viewProjMatrix, projMatrix, viewMatrix);
 
-    mat4.fromXRotation(rotateXMatrix, time * 0.1136);
-    mat4.fromZRotation(rotateYMatrix, time * 0.2235);
-    mat4.multiply(modelMatrix, rotateXMatrix, rotateYMatrix);
+    function draw() {
+        let time = new Date().getTime() / 1000 - startTime;
 
-    mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
-    mat4.multiply(modelViewProjectionMatrix, viewProjMatrix, modelMatrix);
+        mat4.perspective(projMatrix, Math.PI / 2, app.width / app.height, 0.1, 100.0);
+        let camPos = vec3.rotateY(vec3.create(), vec3.fromValues(0, 0.5, 2), vec3.fromValues(0, 0, 0), time * 0.05);
+        mat4.lookAt(viewMatrix, camPos, vec3.fromValues(0, 0, 0), vec3.fromValues(0, 1, 0));
+        mat4.multiply(viewProjMatrix, projMatrix, viewMatrix);
 
-    let skyboxViewProjectionMatrix = mat4.create();
-    mat4.mul(skyboxViewProjectionMatrix, projMatrix, viewMatrix);
-    mat4.invert(skyboxViewProjectionInverse, skyboxViewProjectionMatrix);
+        mat4.fromXRotation(rotateXMatrix, time * 0.1136);
+        mat4.fromZRotation(rotateYMatrix, time * 0.2235);
+        mat4.multiply(modelMatrix, rotateXMatrix, rotateYMatrix);
 
-    app.clear();
+        mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
+        mat4.multiply(modelViewProjectionMatrix, viewProjMatrix, modelMatrix);
 
-    app.disable(PicoGL.DEPTH_TEST);
-    app.disable(PicoGL.CULL_FACE);
-    skyboxDrawCall.uniform("viewProjectionInverse", skyboxViewProjectionInverse);
-    skyboxDrawCall.draw();
+        let skyboxViewProjectionMatrix = mat4.create();
+        mat4.mul(skyboxViewProjectionMatrix, projMatrix, viewMatrix);
+        mat4.invert(skyboxViewProjectionInverse, skyboxViewProjectionMatrix);
 
-    app.enable(PicoGL.DEPTH_TEST);
-    app.enable(PicoGL.CULL_FACE);
-    drawCall.uniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-    drawCall.draw();
+        app.clear();
+
+        app.disable(PicoGL.DEPTH_TEST);
+        skyboxDrawCall.uniform("viewProjectionInverse", skyboxViewProjectionInverse);
+        skyboxDrawCall.draw();
+
+        app.enable(PicoGL.DEPTH_TEST);
+        drawCall.uniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+        drawCall.draw();
+
+        requestAnimationFrame(draw);
+    }
 
     requestAnimationFrame(draw);
-}
-requestAnimationFrame(draw);
+})();

@@ -7,6 +7,13 @@ import {mat4, vec3, vec4} from "../node_modules/gl-matrix/esm/index.js";
 // **                                                                                                                 **
 // *********************************************************************************************************************
 
+// Home task: change anything you like in this small demo, be creative and make it look cool ;)
+// * You can change 3D cube model with any other mesh using Blender WebGL export addon, check blender/export_webgl.py
+// * Change object and camera transformations inside draw() function
+// * Change colors using bgColor and fgColor variables
+// * Distort object shape inside vertexShader
+// * Distort object colors inside fragmentShader
+
 // ******************************************************
 // **                       Data                       **
 // ******************************************************
@@ -23,7 +30,133 @@ import {mat4, vec3, vec4} from "../node_modules/gl-matrix/esm/index.js";
 //                  |/             |/
 //     -.5 -.5 .5   *--------------*  .5 -.5 .5
 
-import {positions, normals, indices} from "../blender/cube.js"
+const positions = new Float32Array([
+    // front
+    -0.5, 0.5, 0.5,
+    0.5, 0.5, 0.5,
+    0.5, -0.5, 0.5,
+    -0.5, -0.5, 0.5,
+
+    // back
+    -0.5, 0.5, -0.5,
+    0.5, 0.5, -0.5,
+    0.5, -0.5, -0.5,
+    -0.5, -0.5, -0.5,
+
+    //top
+    -0.5, 0.5, 0.5,
+    0.5, 0.5, 0.5,
+    0.5, 0.5, -0.5,
+    -0.5, 0.5, -0.5,
+
+    //bottom
+    -0.5, -0.5, 0.5,
+    0.5, -0.5, 0.5,
+    0.5, -0.5, -0.5,
+    -0.5, -0.5, -0.5,
+
+    //left
+    -0.5, -0.5, 0.5,
+    -0.5, 0.5, 0.5,
+    -0.5, 0.5, -0.5,
+    -0.5, -0.5, -0.5,
+
+    //right
+    0.5, -0.5, 0.5,
+    0.5, 0.5, 0.5,
+    0.5, 0.5, -0.5,
+    0.5, -0.5, -0.5,
+]);
+
+const normals = new Float32Array([
+    // front
+    0.0, 0.0, 1.0,
+    0.0, 0.0, 1.0,
+    0.0, 0.0, 1.0,
+    0.0, 0.0, 1.0,
+
+    // back
+    0.0, 0.0, -1.0,
+    0.0, 0.0, -1.0,
+    0.0, 0.0, -1.0,
+    0.0, 0.0, -1.0,
+
+    //top
+    0.0, 1.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 1.0, 0.0,
+
+    //bottom
+    0.0, -1.0, 0.0,
+    0.0, -1.0, 0.0,
+    0.0, -1.0, 0.0,
+    0.0, -1.0, 0.0,
+
+    //left
+    -1.0, 0.0, 0.0,
+    -1.0, 0.0, 0.0,
+    -1.0, 0.0, 0.0,
+    -1.0, 0.0, 0.0,
+
+    //right
+    1.0, 0.0, 0.0,
+    1.0, 0.0, 0.0,
+    1.0, 0.0, 0.0,
+    1.0, 0.0, 0.0,
+]);
+
+const indices = new Uint32Array([
+    // front
+    2, 1, 0,
+    0, 3, 2,
+
+    // back
+    4, 5, 6,
+    6, 7, 4,
+
+    // top
+    8, 9, 10,
+    10, 11, 8,
+
+    // bottom
+    14, 13, 12,
+    12, 15, 14,
+
+    // left
+    16, 17, 18,
+    18, 19, 16,
+
+    // right
+    22, 21, 20,
+    20, 23, 22,
+]);
+
+// import {positions, normals, indices} from "../blender/torus.js"
+
+
+// ******************************************************
+// **                 Pixel processing                 **
+// ******************************************************
+
+// language=GLSL
+let fragmentShader = `
+    #version 300 es
+    precision highp float;
+    uniform float time;
+    
+    in vec4 color;
+    
+    out vec4 outColor;
+    
+    void main()
+    {
+        // gl_FragCoord - builtin variable with screen coordinate
+
+        outColor = color;
+    }
+`;
+
 
 // ******************************************************
 // **               Geometry processing                **
@@ -52,32 +185,13 @@ let vertexShader = `
     }
 `;
 
-// ******************************************************
-// **                 Pixel processing                 **
-// ******************************************************
-
-// language=GLSL
-let fragmentShader = `
-    #version 300 es
-    precision highp float;
-    uniform float time;
-    
-    in vec4 color;
-    
-    out vec4 outColor;
-    
-    void main()
-    {
-        outColor = color;
-    }
-`;
 
 // ******************************************************
 // **             Application processing               **
 // ******************************************************
 
-let bgColor = vec4.fromValues(1.0, 0.2, 0.3, 1.0);
-let fgColor = vec4.fromValues(1.0, 0.9, 0.5, 1.0);
+let bgColor = vec4.fromValues(0.05, 0.4, 0.3, 2.0);
+let fgColor = vec4.fromValues(1.0, 0.7, 1.0, 0.03);
 
 
 app.clearColor(bgColor[0], bgColor[1], bgColor[2], bgColor[3])
@@ -109,9 +223,9 @@ let startTime = new Date().getTime() / 1000;
 
 
 function draw() {
-    let time = new Date().getTime() / 1000 - startTime;
+    let time = new Date().getTime() / 500 - startTime;
 
-    mat4.perspective(projMatrix, Math.PI / 4, app.width / app.height, 0.1, 100.0);
+    mat4.perspective(projMatrix, Math.PI / 4, app.width / app.height, 0.8, 50.0);
     mat4.lookAt(viewMatrix, vec3.fromValues(3, 0, 2), vec3.fromValues(0, 0, 0), vec3.fromValues(0, 1, 0));
     mat4.multiply(viewProjMatrix, projMatrix, viewMatrix);
 

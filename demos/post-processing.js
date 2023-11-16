@@ -190,6 +190,7 @@ async function loadTexture(fileName) {
         requestAnimationFrame(draw);
         previousTime = time;
         time = timestamp / 1000;
+        if (!document.hasFocus()) return;
 
         let cameraPosition = vec3.fromValues(0, 0, 9);
         rotation += (time - previousTime) * 0.5;
